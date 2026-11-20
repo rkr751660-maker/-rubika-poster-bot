@@ -6,8 +6,11 @@ from flask import Flask, request
 app = Flask(__name__)
 global_data = {}
 
+# استفاده از دامنه جایگزین به جای api.rubika.ir
+BASE_URL = "https://botapi.rubika.ir/v2/" 
+
 def send_code(phone):
-    url = "https://api.rubika.ir/v2/auth/sendCode"
+    url = f"{BASE_URL}auth/sendCode"
     try:
         res = requests.post(url, json={"phone_number": phone}, timeout=10)
         return res.json()
@@ -15,7 +18,7 @@ def send_code(phone):
         return {"error": str(e)}
 
 def sign_in(phone, code, phone_code_hash):
-    url = "https://api.rubika.ir/v2/auth/signIn"
+    url = f"{BASE_URL}auth/signIn"
     payload = {"phone_number": phone, "phone_code": code, "phone_code_hash": phone_code_hash}
     try:
         res = requests.post(url, json=payload, timeout=10)
@@ -37,10 +40,7 @@ def home():
 def send():
     phone = request.form['phone']
     res = send_code(phone)
-    
-    if "error" in res:
-        return f"خطای شبکه: {res['error']}<br><a href='/'>بازگشت</a>"
-        
+    if "error" in res: return f"خطای شبکه: {res['error']}<br><a href='/'>بازگشت</a>"
     if res.get("status") == "OK":
         global_data['phone'] = phone
         global_data['hash'] = res["data"]["phone_code_hash"]
@@ -59,15 +59,10 @@ def verify():
     code = request.form['code']
     phone = global_data.get('phone')
     phone_code_hash = global_data.get('hash')
+    if not phone or not phone_code_hash: return "خطا: ابتدا شماره را وارد کنید.<br><a href='/'>بازگشت</a>"
     
-    if not phone or not phone_code_hash:
-        return "خطا: ابتدا شماره را وارد کنید.<br><a href='/'>بازگشت</a>"
-        
     login_res = sign_in(phone, code, phone_code_hash)
-    
-    if "error" in login_res:
-        return f"خطای شبکه: {login_res['error']}<br><a href='/'>بازگشت</a>"
-        
+    if "error" in login_res: return f"خطای شبکه: {login_res['error']}<br><a href='/'>بازگشت</a>"
     if login_res.get("status") == "OK":
         auth_data = login_res["data"]["auth"]
         print("=== SESSION START ===")
