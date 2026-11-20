@@ -8,17 +8,25 @@ global_data = {}
 
 def send_code(phone):
     url = "https://api.rubika.ir/v2/auth/sendCode"
-    return requests.post(url, json={"phone_number": phone}).json()
+    try:
+        res = requests.post(url, json={"phone_number": phone}, timeout=10)
+        return res.json()
+    except Exception as e:
+        return {"error": str(e)}
 
 def sign_in(phone, code, phone_code_hash):
     url = "https://api.rubika.ir/v2/auth/signIn"
     payload = {"phone_number": phone, "phone_code": code, "phone_code_hash": phone_code_hash}
-    return requests.post(url, json=payload).json()
+    try:
+        res = requests.post(url, json=payload, timeout=10)
+        return res.json()
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.route('/')
 def home():
     return '''
-    <h2>مرحله ۱: دریافت کد تایید</h2>
+    <h2>مرحله ۱: دریافت کد</h2>
     <form action="/send" method="post">
         شماره (با +98): <input type="text" name="phone"><br><br>
         <input type="submit" value="ارسال کد">
@@ -29,19 +37,22 @@ def home():
 def send():
     phone = request.form['phone']
     res = send_code(phone)
+    
+    if "error" in res:
+        return f"خطای شبکه: {res['error']}<br><a href='/'>بازگشت</a>"
+        
     if res.get("status") == "OK":
         global_data['phone'] = phone
         global_data['hash'] = res["data"]["phone_code_hash"]
         return '''
         <h2>مرحله ۲: وارد کردن کد</h2>
-        <p>کد تایید به روبیکا شما ارسال شد.</p>
         <form action="/verify" method="post">
             کد تایید: <input type="text" name="code"><br><br>
             <input type="submit" value="ورود">
         </form>
         '''
     else:
-        return f"خطا در ارسال کد: {res}<br><a href='/'>بازگشت</a>"
+        return f"خطای روبیکا: {res}<br><a href='/'>بازگشت</a>"
 
 @app.route('/verify', methods=['POST'])
 def verify():
@@ -49,8 +60,14 @@ def verify():
     phone = global_data.get('phone')
     phone_code_hash = global_data.get('hash')
     
+    if not phone or not phone_code_hash:
+        return "خطا: ابتدا شماره را وارد کنید.<br><a href='/'>بازگشت</a>"
+        
     login_res = sign_in(phone, code, phone_code_hash)
     
+    if "error" in login_res:
+        return f"خطای شبکه: {login_res['error']}<br><a href='/'>بازگشت</a>"
+        
     if login_res.get("status") == "OK":
         auth_data = login_res["data"]["auth"]
         print("=== SESSION START ===")
@@ -58,7 +75,7 @@ def verify():
         print("=== SESSION END ===")
         return "✅ ورود موفق! حالا به تب Logs در Render بروید و Session را کپی کنید."
     else:
-        return f"❌ خطا در ورود: {login_res}<br><a href='/'>بازگشت</a>"
+        return f"❌ خطای روبیکا در ورود: {login_res}<br><a href='/'>بازگشت</a>"
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
