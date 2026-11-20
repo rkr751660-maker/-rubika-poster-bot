@@ -6,8 +6,8 @@ from flask import Flask, request
 app = Flask(__name__)
 global_data = {}
 
-# استفاده از دامنه جایگزین به جای api.rubika.ir
-BASE_URL = "https://botapi.rubika.ir/v2/" 
+# تغییر نسخه API از v2 به v3
+BASE_URL = "https://api.rubika.ir/v3/" 
 
 def send_code(phone):
     url = f"{BASE_URL}auth/sendCode"
